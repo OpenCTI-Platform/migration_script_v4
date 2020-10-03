@@ -2,6 +2,6 @@ opencti_v3_url: 'https://openctiv3.com'
 opencti_v3_token: 'ChangeMe'
 opencti_v4_import_file_stix_connector_id: 'ChangeMe (UUIDv4 of the connector)'
 opencti_v4_rabbitmq_hostname: 'rabbitmq.v4'
-opencti_v4_rabbitmq_port: 5673
+opencti_v4_rabbitmq_port: 5672
 opencti_v4_rabbitmq_user: 'ChangeMe'
 opencti_v4_rabbitmq_password: 'ChangeMe'

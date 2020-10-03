@@ -4,6 +4,7 @@ import pika
 import json
 import base64
 import logging
+import copy
 import progressbar
 
 from art import *
@@ -17,6 +18,30 @@ mandatory_configs = [
     "opencti_v4_rabbitmq_user",
     "opencti_v4_rabbitmq_password",
 ]
+
+OBSERVABLE_KEYS = {
+    "autonomous-system": "autonomous-system.number",
+    "ipv4-addr": "ipv4-addr.value",
+    "ipv6-addr": "ipv6-addr.value",
+    "domain": "domain-name.value",
+    "mac-addr": "mac-addr.value",
+    "url": "url.value",
+    "email-address": "email-addr.value",
+    "email-subject": "email-message.subject",
+    "mutex": "mutex.name",
+    "file-name": "file.name",
+    "file-path": "file.path",
+    "file-md6": "file.hashes.MD5",
+    "file-sha1": "file.hashes.SHA1",
+    "file-sha256": "file.hashes.SHA256",
+    "directory": "directory.path",
+    "registry-key": "windows-registry-key.key",
+    "registry-key-value": "windows-registry-value-type.data",
+    "user-account": "user-account.account_login",
+    "text": "x-opencti-text.value",
+    "cryptographic-key": "x-opencti-cryptographic-key.value",
+    "cryptocurrency-wallet": "x-opencti-cryptocurrency-wallet.value",
+}
 
 
 class Migrate:
@@ -107,21 +132,27 @@ class Migrate:
                 "A current state has been found, resuming to step "
                 + str(state["step"])
                 + " with cursor "
-                + state["after"]
+                + str(state["after"])
             )
         # 1. MIGRATION OF STIX DOMAIN OBJECT
         if state["step"] is None or state["step"] == 1:
             print(" ")
-            print("STEP 1: MIGRATION OF STIX DOMAIN OBJECTS")
+            print("STEP 1: MIGRATION OF STIX DOMAIN OBJECTS (except containers)")
             print(" ")
             data = {"pagination": {"hasNextPage": True, "endCursor": state["after"]}}
             count = self.opencti_api_client.stix_domain_entity.list(
                 first=1,
                 withPagination=True,
+                customAttributes="""
+                    id
+                    entity_type
+                """,
                 orderBy="created_at",
                 orderMode="asc",
             )
-            with progressbar.ProgressBar(max_value=count["pagination"]["globalCount"]) as bar:
+            with progressbar.ProgressBar(
+                max_value=count["pagination"]["globalCount"]
+            ) as bar:
                 while data["pagination"]["hasNextPage"]:
                     after = data["pagination"]["endCursor"]
                     data = self.opencti_api_client.stix_domain_entity.list(
@@ -129,14 +160,29 @@ class Migrate:
                         after=after,
                         withPagination=True,
                         orderBy="created_at",
+                        customAttributes="""
+                            id
+                            entity_type
+                        """,
                         orderMode="asc",
                     )
                     local_number = 0
                     for stix_domain_entity in data["entities"]:
-                        bundle = self.opencti_api_client.stix2.export_entity(
-                            stix_domain_entity["entity_type"], stix_domain_entity["id"]
-                        )
-                        self._send_bundle(json.dumps(bundle))
+                        if (
+                            stix_domain_entity["entity_type"] != "report"
+                            and stix_domain_entity["entity_type"] != "note"
+                        ):
+                            bundle = self.opencti_api_client.stix2.export_entity(
+                                stix_domain_entity["entity_type"],
+                                stix_domain_entity["id"],
+                            )
+                            bundle_objects = copy.deepcopy(bundle["objects"])
+                            bundle["objects"] = []
+                            for bundle_object in bundle_objects:
+                                if "labels" in bundle_object:
+                                    del bundle_object["labels"]
+                                bundle["objects"].append(bundle_object)
+                            self._send_bundle(json.dumps(bundle))
                         local_number += 1
                     state = self.set_state(
                         {
@@ -148,19 +194,26 @@ class Migrate:
                     bar.update(state["number"])
 
         # 2. MIGRATION OF STIX CYBER OBSERVABLE
-        state = self.set_state({"step": 2, "after": None, "number": 0})
+        if state["step"] == 1:
+            state = self.set_state({"step": 2, "after": None, "number": 0})
         if state["step"] == 2:
             print(" ")
             print("STEP 2: MIGRATION OF STIX CYBER OBSERVABLES")
             print(" ")
             data = {"pagination": {"hasNextPage": True, "endCursor": state["after"]}}
-            count = self.opencti_api_client.stix_domain_entity.list(
+            count = self.opencti_api_client.stix_observable.list(
                 first=1,
                 withPagination=True,
+                customAttributes="""
+                    id
+                    entity_type
+                """,
                 orderBy="created_at",
                 orderMode="asc",
             )
-            with progressbar.ProgressBar(max_value=count["pagination"]["globalCount"]) as bar:
+            with progressbar.ProgressBar(
+                max_value=count["pagination"]["globalCount"]
+            ) as bar:
                 while data["pagination"]["hasNextPage"]:
                     after = data["pagination"]["endCursor"]
                     data = self.opencti_api_client.stix_observable.list(
@@ -171,10 +224,21 @@ class Migrate:
                         orderMode="asc",
                     )
                     local_number = 0
-                    for stix_domain_entity in data["entities"]:
-                        bundle = self.opencti_api_client.stix2.export_entity(
-                            stix_domain_entity["entity_type"], stix_domain_entity["id"]
-                        )
+                    for stix_observable in data["entities"]:
+                        observable_stix = {
+                            "id": stix_observable["stix_id"],
+                            "type": "x-opencti-simple-observable",
+                            "key": OBSERVABLE_KEYS[stix_observable["entity_type"]],
+                            "value": stix_observable["observable_value"],
+                            "description": stix_observable["description"]
+                        }
+                        original_bundle_objects = self.opencti_api_client.stix2.prepare_export(stix_observable, observable_stix)
+                        bundle_objects = []
+                        for original_bundle_object in original_bundle_objects:
+                            if "labels" in original_bundle_object:
+                                del original_bundle_object["labels"]
+                            bundle_objects.append(original_bundle_object)
+                        bundle = {"type": "bundle", "objects": bundle_objects}
                         self._send_bundle(json.dumps(bundle))
                         local_number += 1
                     self.set_state(
@@ -187,6 +251,163 @@ class Migrate:
                     bar.update(state["number"])
 
         # 3. MIGRATION OF STIX CORE RELATIONSHIPS
+        if state["step"] == 2:
+            state = self.set_state({"step": 3, "after": None, "number": 0})
+        if state["step"] == 3:
+            print(" ")
+            print("STEP 3: MIGRATION OF STIX CORE RELATIONSHIPS")
+            print(" ")
+            data = {"pagination": {"hasNextPage": True, "endCursor": state["after"]}}
+            count = self.opencti_api_client.stix_relation.list(
+                first=1,
+                withPagination=True,
+                customAttributes="""
+                    id
+                """,
+                orderBy="created_at",
+                orderMode="asc",
+            )
+            with progressbar.ProgressBar(
+                max_value=count["pagination"]["globalCount"]
+            ) as bar:
+                while data["pagination"]["hasNextPage"]:
+                    after = data["pagination"]["endCursor"]
+                    data = self.opencti_api_client.stix_relation.list(
+                        fromTypes=["Stix-Entity"],
+                        first=100,
+                        after=after,
+                        withPagination=True,
+                        customAttributes="""
+                            id
+                        """,
+                        orderBy="created_at",
+                        orderMode="asc",
+                    )
+                    local_number = 0
+                    for stix_relation in data["entities"]:
+                        bundle_objects = self.opencti_api_client.stix_relation.to_stix2(
+                            id=stix_relation["id"]
+                        )
+                        bundle = {"type": "bundle", "objects": bundle_objects}
+                        self._send_bundle(json.dumps(bundle))
+                        local_number += 1
+                    self.set_state(
+                        {
+                            "step": 3,
+                            "after": after,
+                            "number": state["number"] + local_number,
+                        }
+                    )
+                    bar.update(state["number"])
+
+        # 4. MIGRATION OF STIX CORE RELATIONSHIPS TO STIX CORE RELATIONSHIPS
+        if state["step"] == 3:
+            state = self.set_state({"step": 4, "after": None, "number": 0})
+        if state["step"] == 4:
+            print(" ")
+            print("STEP 4: MIGRATION OF STIX CORE RELATIONSHIPS TO STIX CORE RELATIONSHIPS")
+            print(" ")
+            data = {"pagination": {"hasNextPage": True, "endCursor": state["after"]}}
+            count = self.opencti_api_client.stix_relation.list(
+                fromTypes=["stix_relationship"],
+                first=1,
+                withPagination=True,
+                customAttributes="""
+                    id
+                """,
+                orderBy="created_at",
+                orderMode="asc",
+            )
+            with progressbar.ProgressBar(
+                max_value=count["pagination"]["globalCount"]
+            ) as bar:
+                while data["pagination"]["hasNextPage"]:
+                    after = data["pagination"]["endCursor"]
+                    data = self.opencti_api_client.stix_relation.list(
+                        first=100,
+                        after=after,
+                        withPagination=True,
+                        customAttributes="""
+                            id
+                        """,
+                        orderBy="created_at",
+                        orderMode="asc",
+                    )
+                    local_number = 0
+                    for stix_relation in data["entities"]:
+                        bundle_objects = self.opencti_api_client.stix_relation.to_stix2(
+                            id=stix_relation["id"]
+                        )
+                        bundle = {"type": "bundle", "objects": bundle_objects}
+                        self._send_bundle(json.dumps(bundle))
+                        local_number += 1
+                    self.set_state(
+                        {
+                            "step": 4,
+                            "after": after,
+                            "number": state["number"] + local_number,
+                        }
+                    )
+                    bar.update(state["number"])
+
+        # 5. MIGRATION OF CONTAINERS
+        if state["step"] == 4:
+            state = self.set_state({"step": 5, "after": None, "number": 0})
+        if state["step"] == 5:
+            print(" ")
+            print("STEP 5: MIGRATION OF CONTAINERS")
+            print(" ")
+            data = {"pagination": {"hasNextPage": True, "endCursor": state["after"]}}
+            count = self.opencti_api_client.stix_domain_entity.list(
+                types=["Report", "Note"],
+                first=1,
+                withPagination=True,
+                customAttributes="""
+                    id
+                    entity_type
+                """,
+                orderBy="created_at",
+                orderMode="asc",
+            )
+            with progressbar.ProgressBar(
+                max_value=count["pagination"]["globalCount"]
+            ) as bar:
+                while data["pagination"]["hasNextPage"]:
+                    after = data["pagination"]["endCursor"]
+                    data = self.opencti_api_client.stix_domain_entity.list(
+                        types=["Report", "Note"],
+                        first=100,
+                        after=after,
+                        withPagination=True,
+                        customAttributes="""
+                            id
+                        """,
+                        orderBy="created_at",
+                        orderMode="asc",
+                    )
+                    local_number = 0
+                    for stix_observable in data["entities"]:
+                        original_bundle_objects = (
+                            self.opencti_api_client.stix_observable.to_stix2(
+                                id=stix_observable["id"]
+                            )
+                        )
+                        bundle_objects = []
+                        for original_bundle_object in original_bundle_objects:
+                            if "labels" in original_bundle_object:
+                                del original_bundle_object["labels"]
+                            bundle_objects.append(original_bundle_object)
+                        bundle = {"type": "bundle", "objects": bundle_objects}
+                        self._send_bundle(json.dumps(bundle))
+                        local_number += 1
+                    self.set_state(
+                        {
+                            "step": 5,
+                            "after": after,
+                            "number": state["number"] + local_number,
+                        }
+                    )
+                    bar.update(state["number"])
 
 
 if __name__ == "__main__":
