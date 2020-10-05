@@ -117,7 +117,6 @@ class Migrate:
             "push_routing_" + self.config["opencti_v4_import_file_stix_connector_id"]
         )
         try:
-            print(message)
             self.channel.basic_publish(
                 exchange="amqp.worker.exchange",
                 routing_key=routing_key,
@@ -262,7 +261,7 @@ class Migrate:
                         bundle = {"type": "bundle", "objects": bundle_objects}
                         self._send_bundle(json.dumps(bundle))
                         local_number += 1
-                    self.set_state(
+                    state = self.set_state(
                         {
                             "step": 2,
                             "after": after,
@@ -294,7 +293,6 @@ class Migrate:
                 while data["pagination"]["hasNextPage"]:
                     after = data["pagination"]["endCursor"]
                     data = self.opencti_api_client.stix_relation.list(
-                        fromTypes=["Stix-Entity"],
                         first=100,
                         after=after,
                         withPagination=True,
@@ -306,13 +304,20 @@ class Migrate:
                     )
                     local_number = 0
                     for stix_relation in data["entities"]:
-                        bundle_objects = self.opencti_api_client.stix_relation.to_stix2(
-                            id=stix_relation["id"]
-                        )
-                        bundle = {"type": "bundle", "objects": bundle_objects}
-                        self._send_bundle(json.dumps(bundle))
-                        local_number += 1
-                    self.set_state(
+                        if not stix_relation["from"]["stix_id_key"].startswith(
+                            "relationship"
+                        ) and not stix_relation["to"]["stix_id_key"].startswith(
+                            "relationship"
+                        ):
+                            bundle_objects = (
+                                self.opencti_api_client.stix_relation.to_stix2(
+                                    id=stix_relation["id"]
+                                )
+                            )
+                            bundle = {"type": "bundle", "objects": bundle_objects}
+                            self._send_bundle(json.dumps(bundle))
+                            local_number += 1
+                    state = self.set_state(
                         {
                             "step": 3,
                             "after": after,
@@ -332,7 +337,6 @@ class Migrate:
             print(" ")
             data = {"pagination": {"hasNextPage": True, "endCursor": state["after"]}}
             count = self.opencti_api_client.stix_relation.list(
-                fromTypes=["stix_relationship"],
                 first=1,
                 withPagination=True,
                 customAttributes="""
@@ -358,13 +362,20 @@ class Migrate:
                     )
                     local_number = 0
                     for stix_relation in data["entities"]:
-                        bundle_objects = self.opencti_api_client.stix_relation.to_stix2(
-                            id=stix_relation["id"]
-                        )
-                        bundle = {"type": "bundle", "objects": bundle_objects}
-                        self._send_bundle(json.dumps(bundle))
-                        local_number += 1
-                    self.set_state(
+                        if stix_relation["from"]["stix_id_key"].startswith(
+                            "relationship"
+                        ) or stix_relation["to"]["stix_id_key"].startswith(
+                            "relationship"
+                        ):
+                            bundle_objects = (
+                                self.opencti_api_client.stix_relation.to_stix2(
+                                    id=stix_relation["id"]
+                                )
+                            )
+                            bundle = {"type": "bundle", "objects": bundle_objects}
+                            self._send_bundle(json.dumps(bundle))
+                            local_number += 1
+                    state = self.set_state(
                         {
                             "step": 4,
                             "after": after,
@@ -423,7 +434,7 @@ class Migrate:
                         bundle = {"type": "bundle", "objects": bundle_objects}
                         self._send_bundle(json.dumps(bundle))
                         local_number += 1
-                    self.set_state(
+                    state = self.set_state(
                         {
                             "step": 5,
                             "after": after,
