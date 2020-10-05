@@ -20,27 +20,27 @@ mandatory_configs = [
 ]
 
 OBSERVABLE_KEYS = {
-    "autonomous-system": "autonomous-system.number",
-    "ipv4-addr": "ipv4-addr.value",
-    "ipv6-addr": "ipv6-addr.value",
-    "domain": "domain-name.value",
-    "mac-addr": "mac-addr.value",
-    "url": "url.value",
-    "email-address": "email-addr.value",
-    "email-subject": "email-message.subject",
-    "mutex": "mutex.name",
-    "file-name": "file.name",
-    "file-path": "file.path",
-    "file-md6": "file.hashes.MD5",
-    "file-sha1": "file.hashes.SHA1",
-    "file-sha256": "file.hashes.SHA256",
-    "directory": "directory.path",
-    "registry-key": "windows-registry-key.key",
-    "registry-key-value": "windows-registry-value-type.data",
-    "user-account": "user-account.account_login",
-    "text": "x-opencti-text.value",
-    "cryptographic-key": "x-opencti-cryptographic-key.value",
-    "cryptocurrency-wallet": "x-opencti-cryptocurrency-wallet.value",
+    "autonomous-system": "Autonomous-System.number",
+    "ipv4-addr": "IPv4-Addr.value",
+    "ipv6-addr": "IPv6-Addr.value",
+    "domain": "Domain-Name.value",
+    "mac-addr": "Mac-Addr.value",
+    "url": "Url.value",
+    "email-address": "Email-Addr.value",
+    "email-subject": "Email-Message.subject",
+    "mutex": "Mutex.name",
+    "file-name": "File.name",
+    "file-path": "File.path",
+    "file-md5": "File.hashes.MD5",
+    "file-sha1": "File.hashes.SHA-1",
+    "file-sha256": "File.hashes.SHA-256",
+    "directory": "Directory.path",
+    "registry-key": "Windows-Registry-Key.key",
+    "registry-key-value": "Windows-Registry-value-type.data",
+    "user-account": "User-Account.account_login",
+    "text": "X-OpenCTI-Text.value",
+    "cryptographic-key": "X-openCTI-Cryptographic-key.value",
+    "cryptocurrency-wallet": "X-OpenCTI-Cryptocurrency-wWllet.value",
 }
 
 
@@ -116,14 +116,22 @@ class Migrate:
         routing_key = (
             "push_routing_" + self.config["opencti_v4_import_file_stix_connector_id"]
         )
-        self.channel.basic_publish(
-            exchange="amqp.worker.exchange",
-            routing_key=routing_key,
-            body=json.dumps(message),
-            properties=pika.BasicProperties(
-                delivery_mode=2,  # make message persistent
-            ),
-        )
+        try:
+            print(message)
+            self.channel.basic_publish(
+                exchange="amqp.worker.exchange",
+                routing_key=routing_key,
+                body=json.dumps(message),
+                properties=pika.BasicProperties(
+                    delivery_mode=2,  # make message persistent
+                ),
+            )
+        except:
+            if retry is False:
+                self._rabbitmq_connect()
+                self._send_bundle(bundle, True)
+            else:
+                raise ValueError("Impossible to send a message to RabbitMQ")
 
     def start(self):
         state = self.get_state()
@@ -179,6 +187,15 @@ class Migrate:
                             bundle_objects = copy.deepcopy(bundle["objects"])
                             bundle["objects"] = []
                             for bundle_object in bundle_objects:
+                                if (
+                                    "x_opencti_identity_type" in bundle_object
+                                    and bundle_object["x_opencti_identity_type"]
+                                    in ["Region", "Country", "City"]
+                                ):
+                                    bundle_object["type"] = "location"
+                                    bundle_object["id"] = bundle_object["id"].replace(
+                                        "identity", "location"
+                                    )
                                 if "labels" in bundle_object:
                                     del bundle_object["labels"]
                                 bundle["objects"].append(bundle_object)
@@ -226,13 +243,17 @@ class Migrate:
                     local_number = 0
                     for stix_observable in data["entities"]:
                         observable_stix = {
-                            "id": stix_observable["stix_id"],
+                            "id": stix_observable["stix_id_key"],
                             "type": "x-opencti-simple-observable",
                             "key": OBSERVABLE_KEYS[stix_observable["entity_type"]],
                             "value": stix_observable["observable_value"],
-                            "description": stix_observable["description"]
+                            "description": stix_observable["description"],
                         }
-                        original_bundle_objects = self.opencti_api_client.stix2.prepare_export(stix_observable, observable_stix)
+                        original_bundle_objects = (
+                            self.opencti_api_client.stix2.prepare_export(
+                                stix_observable, observable_stix
+                            )
+                        )
                         bundle_objects = []
                         for original_bundle_object in original_bundle_objects:
                             if "labels" in original_bundle_object:
@@ -305,7 +326,9 @@ class Migrate:
             state = self.set_state({"step": 4, "after": None, "number": 0})
         if state["step"] == 4:
             print(" ")
-            print("STEP 4: MIGRATION OF STIX CORE RELATIONSHIPS TO STIX CORE RELATIONSHIPS")
+            print(
+                "STEP 4: MIGRATION OF STIX CORE RELATIONSHIPS TO STIX CORE RELATIONSHIPS"
+            )
             print(" ")
             data = {"pagination": {"hasNextPage": True, "endCursor": state["after"]}}
             count = self.opencti_api_client.stix_relation.list(
