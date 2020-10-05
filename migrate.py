@@ -195,6 +195,7 @@ class Migrate:
                                     bundle_object["id"] = bundle_object["id"].replace(
                                         "identity", "location"
                                     )
+                                    bundle_object["x_opencti_location_type"] = bundle_object["x_opencti_identity_type"]
                                 if "labels" in bundle_object:
                                     del bundle_object["labels"]
                                 bundle["objects"].append(bundle_object)
