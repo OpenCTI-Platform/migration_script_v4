@@ -40,7 +40,7 @@ OBSERVABLE_KEYS = {
     "user-account": "User-Account.account_login",
     "text": "X-OpenCTI-Text.value",
     "cryptographic-key": "X-openCTI-Cryptographic-key.value",
-    "cryptocurrency-wallet": "X-OpenCTI-Cryptocurrency-wWllet.value",
+    "cryptocurrency-wallet": "X-OpenCTI-Cryptocurrency-Wallet.value",
 }
 
 
