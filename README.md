@@ -23,7 +23,21 @@ $ ./venv/bin/pip3 install -r requirements.txt
 
 If you dont want to use a venv, please install the requirements with `pip3 install -r requirements.txt`.
 
-### Script parameters
+### Procedure
 
+1. Start a new OpenCTI 4 fresh platform.
+2. Configure the script with OpenCTI 3 credentials and OpenCTI 4 RabbitMQ Server.
+3. Launch the migration script that will take old data in STIX2 and re-inject it in the OpenCTI import system.
+4. The data ingestion should be quick as OpenCTI 4 will have an enhanced throughput of write operations.
 
+#### Script config
 
+```
+opencti_v3_url: 'https://openctiv3.com'
+opencti_v3_token: 'ChangeMe'
+opencti_v4_import_file_stix_connector_id: 'ChangeMe (UUIDv4 of the connector)'
+opencti_v4_rabbitmq_hostname: 'rabbitmq.v4'
+opencti_v4_rabbitmq_port: 5672
+opencti_v4_rabbitmq_user: 'ChangeMe'
+opencti_v4_rabbitmq_password: 'ChangeMe'
+```
