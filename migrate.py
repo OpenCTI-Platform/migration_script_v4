@@ -110,6 +110,7 @@ class Migrate:
     def _send_bundle(self, bundle, retry=False):
         message = {
             "job_id": None,
+            "applicant_id": None,
             "content": base64.b64encode(bundle.encode("utf-8")).decode("utf-8"),
         }
         # Send the message
