@@ -1,0 +1,12 @@
+version: "2"
+services:
+  opencti-migration-v4:
+    image: YOUR_IMAGE_HERE
+    environment:
+      OPENCTI_V3_URL: "https://openctiv3.com"
+      OPENCTI_V3_TOKEN: "ChangeMe"
+      OPENCTI_V4_IMPORT_FILE_STIX_CONNECTOR_ID: "ChangeMe (UUIDv4 of the connector)"
+      OPENCTI_V4_RABBITMQ_HOSTNAME: "rabbitmq.v4"
+      OPENCTI_V4_RABBITMQ_PORT: 5672
+      OPENCTI_V4_RABBITMQ_USER: "ChangeMe"
+      OPENCTI_V4_RABBITMQ_PASSWORD: "ChangeMe"

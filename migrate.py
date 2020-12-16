@@ -55,6 +55,13 @@ class Migrate:
             if os.path.isfile(config_file_path)
             else {}
         )
+        self.config.update(
+            {
+                key.lower(): value
+                for key, value in os.environ
+                if key.startswith("OPENCTI")
+            }
+        )
         for config in mandatory_configs:
             if config not in config:
                 raise ValueError("Missing configuration parameter: " + config)
