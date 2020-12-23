@@ -1,7 +1,7 @@
 version: "2"
 services:
   opencti-migration-v4:
-    image: YOUR_IMAGE_HERE
+    image: opencti-migration-v4
     environment:
       OPENCTI_V3_URL: "https://openctiv3.com"
       OPENCTI_V3_TOKEN: "ChangeMe"

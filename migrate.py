@@ -58,7 +58,7 @@ class Migrate:
         self.config.update(
             {
                 key.lower(): value
-                for key, value in os.environ
+                for key, value in os.environ.items()
                 if key.startswith("OPENCTI")
             }
         )

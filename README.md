@@ -41,3 +41,15 @@ opencti_v4_rabbitmq_port: 5672
 opencti_v4_rabbitmq_user: 'ChangeMe'
 opencti_v4_rabbitmq_password: 'ChangeMe'
 ```
+
+### Using Docker Compose
+
+Modify `docker-compose.yml` environment with the target configuration.
+Environment variables will take precedence over the config.yml file.
+
+Then run:
+
+```
+docker build -t opencti-migration-v4 .
+docker-compose -f docker-compose.yml up
+```
