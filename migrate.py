@@ -35,6 +35,7 @@ OBSERVABLE_KEYS = {
     "file-sha1": "File.hashes.SHA-1",
     "file-sha256": "File.hashes.SHA-256",
     "directory": "Directory.path",
+    "hostname": "X-OpenCTI-Hostname.value",
     "registry-key": "Windows-Registry-Key.key",
     "registry-key-value": "Windows-Registry-value-type.data",
     "user-account": "User-Account.account_login",
