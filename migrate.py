@@ -427,6 +427,7 @@ class Migrate:
                         withPagination=True,
                         customAttributes="""
                             id
+                            entity_type
                         """,
                         orderBy="created_at",
                         orderMode="asc",
