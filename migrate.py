@@ -432,18 +432,17 @@ class Migrate:
                         orderMode="asc",
                     )
                     local_number = 0
-                    for stix_observable in data["entities"]:
-                        original_bundle_objects = (
-                            self.opencti_api_client.stix_observable.to_stix2(
-                                id=stix_observable["id"]
-                            )
+                    for stix_domain_entity in data["entities"]:
+                        bundle = self.opencti_api_client.stix2.export_entity(
+                            stix_domain_entity["entity_type"],
+                            stix_domain_entity["id"],
                         )
-                        bundle_objects = []
-                        for original_bundle_object in original_bundle_objects:
-                            if "labels" in original_bundle_object:
-                                del original_bundle_object["labels"]
-                            bundle_objects.append(original_bundle_object)
-                        bundle = {"type": "bundle", "objects": bundle_objects}
+                        bundle_objects = copy.deepcopy(bundle["objects"])
+                        bundle["objects"] = []
+                        for bundle_object in bundle_objects:
+                            if "labels" in bundle_object:
+                                del bundle_object["labels"]
+                            bundle["objects"].append(bundle_object)
                         self._send_bundle(json.dumps(bundle))
                         local_number += 1
                     state = self.set_state(
