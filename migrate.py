@@ -219,7 +219,11 @@ class Migrate:
                             "number": state["number"] + local_number,
                         }
                     )
-                    bar.update(state["number"] if state["number"] <= count["pagination"]["globalCount"] else count["pagination"]["globalCount"])
+                    bar.update(
+                        state["number"]
+                        if state["number"] <= count["pagination"]["globalCount"]
+                        else count["pagination"]["globalCount"]
+                    )
 
         # 2. MIGRATION OF STIX CYBER OBSERVABLE
         if state["step"] == 1:
@@ -280,7 +284,11 @@ class Migrate:
                             "number": state["number"] + local_number,
                         }
                     )
-                    bar.update(state["number"] if state["number"] <= count["pagination"]["globalCount"] else count["pagination"]["globalCount"])
+                    bar.update(
+                        state["number"]
+                        if state["number"] <= count["pagination"]["globalCount"]
+                        else count["pagination"]["globalCount"]
+                    )
 
         # 3. MIGRATION OF STIX CORE RELATIONSHIPS
         if state["step"] == 2:
@@ -336,7 +344,11 @@ class Migrate:
                             "number": state["number"] + local_number,
                         }
                     )
-                    bar.update(state["number"] if state["number"] <= count["pagination"]["globalCount"] else count["pagination"]["globalCount"])
+                    bar.update(
+                        state["number"]
+                        if state["number"] <= count["pagination"]["globalCount"]
+                        else count["pagination"]["globalCount"]
+                    )
 
         # 4. MIGRATION OF STIX CORE RELATIONSHIPS TO STIX CORE RELATIONSHIPS
         if state["step"] == 3:
@@ -394,7 +406,11 @@ class Migrate:
                             "number": state["number"] + local_number,
                         }
                     )
-                    bar.update(state["number"] if state["number"] <= count["pagination"]["globalCount"] else count["pagination"]["globalCount"])
+                    bar.update(
+                        state["number"]
+                        if state["number"] <= count["pagination"]["globalCount"]
+                        else count["pagination"]["globalCount"]
+                    )
 
         # 5. MIGRATION OF CONTAINERS
         if state["step"] == 4:
@@ -453,7 +469,11 @@ class Migrate:
                             "number": state["number"] + local_number,
                         }
                     )
-                    bar.update(state["number"] if state["number"] <= count["pagination"]["globalCount"] else count["pagination"]["globalCount"])
+                    bar.update(
+                        state["number"]
+                        if state["number"] <= count["pagination"]["globalCount"]
+                        else count["pagination"]["globalCount"]
+                    )
 
 
 if __name__ == "__main__":
