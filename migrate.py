@@ -5,6 +5,7 @@ import json
 import base64
 import logging
 import copy
+import uuid
 import progressbar
 
 from art import *
@@ -276,6 +277,22 @@ class Migrate:
                             bundle_objects.append(original_bundle_object)
                         bundle = {"type": "bundle", "objects": bundle_objects}
                         self._send_bundle(json.dumps(bundle))
+
+                        # If indicators
+                        if (
+                            "indicatorsIds" in stix_observable
+                            and len(stix_observable["indicatorsIds"]) > 0
+                        ):
+                            for indicator_id in stix_observable["indicatorsIds"]:
+                                relation_stix = {
+                                    "id": "relationship--" + str(uuid.uuid4()),
+                                    "type": "relationship",
+                                    "relationship_type": "based-on",
+                                    "source_ref": indicator_id,
+                                    "target_ref": stix_observable["stix_id_key"],
+                                }
+                                bundle = {"type": "bundle", "objects": [relation_stix]}
+                                self._send_bundle(json.dumps(bundle))
                         local_number += 1
                     state = self.set_state(
                         {
